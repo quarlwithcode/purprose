@@ -110,4 +110,14 @@ describe('CLI', () => {
     const { stderr } = await runCli('draft', '--client', 'Test');
     expect(stderr).toContain('required');
   });
+
+  it('errors on update with missing args', async () => {
+    const { stderr } = await runCli('update');
+    expect(stderr).toContain('required');
+  });
+
+  it('errors on clone with missing id', async () => {
+    const { stderr } = await runCli('clone');
+    expect(stderr).toContain('required');
+  });
 });

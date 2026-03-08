@@ -7,6 +7,8 @@ import {
   validate_proposal,
   list_proposals,
   get_proposal,
+  update_proposal,
+  clone_proposal,
   update_proposal_status,
   delete_proposal,
 } from './handlers.js';
@@ -23,6 +25,8 @@ USAGE:
   purprose list [--status <s>] [--client <name>]
   purprose get <id>
   purprose status <id> <new-status> [--notes "reason"]
+  purprose update <id> <input.json> [--template <t>]
+  purprose clone <id> [--client "New Client"] [--title "New Title"]
   purprose delete <id>
   purprose migrate
   purprose migrate status
@@ -34,6 +38,8 @@ COMMANDS:
   validate    Validate proposal JSON structure
   list        List saved proposals
   get         Retrieve a saved proposal by ID
+  update      Update a saved proposal with new data
+  clone       Clone a proposal with optional overrides
   status      Update proposal status
   delete      Delete a saved proposal
   migrate     Run pending database migrations
@@ -50,6 +56,7 @@ OPTIONS:
   --by              Preparer name (for draft)
   --status          Filter by status (for list)
   --notes           Notes for status change
+  --title           New title (for clone)
 
 EXAMPLES:
   # Generate from JSON
@@ -322,6 +329,75 @@ async function main() {
       }
 
       console.log(`Deleted proposal: ${id}`);
+      break;
+    }
+
+    case 'update': {
+      const id = args[1];
+      const inputFile = args[2];
+      if (!id || !inputFile) {
+        console.error('Error: Proposal ID and input file required');
+        console.log('Usage: purprose update <id> <input.json> [--template <t>]');
+        process.exit(1);
+      }
+
+      if (!existsSync(inputFile)) {
+        console.error(`Error: File not found: ${inputFile}`);
+        process.exit(1);
+      }
+
+      let template: string | undefined;
+      for (let i = 3; i < args.length; i++) {
+        if (args[i] === '--template' || args[i] === '-t') template = args[++i];
+      }
+
+      try {
+        const content = await readFile(inputFile, 'utf-8');
+        const proposalData = JSON.parse(content);
+        const result = await update_proposal({ id, proposal: proposalData, templateId: template });
+        if (!result.success || !result.data) {
+          console.error('Error:', result.error);
+          process.exit(1);
+        }
+        console.log(`Updated: ${result.data.title} ($${result.data.totalValue.toLocaleString()})`);
+      } catch (err: any) {
+        console.error('Error:', err.message);
+        process.exit(1);
+      }
+      break;
+    }
+
+    case 'clone': {
+      const id = args[1];
+      if (!id) {
+        console.error('Error: Proposal ID required');
+        console.log('Usage: purprose clone <id> [--client "Name"] [--title "Title"]');
+        process.exit(1);
+      }
+
+      let client: string | undefined;
+      let title: string | undefined;
+      let company: string | undefined;
+
+      for (let i = 2; i < args.length; i++) {
+        if (args[i] === '--client') client = args[++i];
+        else if (args[i] === '--title') title = args[++i];
+        else if (args[i] === '--company') company = args[++i];
+      }
+
+      const result = await clone_proposal({
+        id,
+        newClientName: client,
+        newTitle: title,
+        newClientCompany: company,
+      });
+
+      if (!result.success || !result.data) {
+        console.error('Error:', result.error);
+        process.exit(1);
+      }
+
+      console.log(`Cloned: ${result.data.id.slice(0, 8)}  ${result.data.title}  (${result.data.clientName})`);
       break;
     }
 
