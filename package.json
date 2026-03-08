@@ -1,31 +1,52 @@
 {
   "name": "@cubicrew/purprose",
-  "version": "0.1.0",
-  "description": "Proposal generation MCP — HTML to PDF with templated styling",
+  "version": "0.2.0",
+  "description": "Proposal management MCP server and CLI — generate, track, and analyze proposals",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "purprose": "./dist/cli.js"
+    "purprose": "dist/cli.js"
   },
+  "files": [
+    "dist/",
+    "examples/",
+    "README.md",
+    "SKILL.md"
+  ],
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "npx tsc",
+    "dev": "npx tsc --watch",
     "start": "node dist/index.js",
-    "test": "vitest"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm test"
   },
-  "keywords": ["mcp", "proposals", "pdf", "html", "templates"],
+  "keywords": [
+    "mcp",
+    "proposals",
+    "html",
+    "templates"
+  ],
   "author": "CubiCrew",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^3.22.0",
-    "puppeteer": "^22.0.0"
+    "better-sqlite3": "^12.6.2",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.0.0",
     "typescript": "^5.3.0",
     "vitest": "^1.0.0"
+  },
+  "peerDependencies": {
+    "puppeteer": ">=21.0.0"
+  },
+  "peerDependenciesMeta": {
+    "puppeteer": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=18.0.0"

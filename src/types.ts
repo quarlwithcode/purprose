@@ -84,6 +84,59 @@ export const GenerateProposalRequestSchema = z.object({
 });
 export type GenerateProposalRequest = z.infer<typeof GenerateProposalRequestSchema>;
 
+// Proposal status lifecycle
+export const ProposalStatusSchema = z.enum(['draft', 'reviewed', 'sent', 'approved', 'won', 'lost']);
+export type ProposalStatus = z.infer<typeof ProposalStatusSchema>;
+
+// Stored proposal (wraps Proposal with persistence metadata)
+export interface StoredProposal {
+  id: string;
+  title: string;
+  clientName: string;
+  clientCompany?: string;
+  preparedBy: string;
+  status: ProposalStatus;
+  totalValue: number;
+  proposal: Proposal;
+  templateId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Status history entry
+export interface StatusHistoryEntry {
+  id: number;
+  proposalId: string;
+  fromStatus: string | null;
+  toStatus: string;
+  notes: string | null;
+  changedAt: string;
+}
+
+// Filters for listing proposals
+export interface ProposalFilters {
+  status?: ProposalStatus;
+  client?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  limit?: number;
+  offset?: number;
+}
+
+// CRM context for alignment checks
+export const CrmContextSchema = z.object({
+  opportunityName: z.string().optional(),
+  dealStage: z.string().optional(),
+  dealValue: z.number().optional(),
+  contactName: z.string().optional(),
+  contactTitle: z.string().optional(),
+  companyName: z.string().optional(),
+  closeDate: z.string().optional(),
+  notes: z.string().optional(),
+  customFields: z.record(z.string()).optional(),
+});
+export type CrmContext = z.infer<typeof CrmContextSchema>;
+
 // Tool response
 export interface ToolResponse<T = unknown> {
   success: boolean;

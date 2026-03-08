@@ -1,6 +1,6 @@
 # purprose — Proposal Generation
 
-Generate professional client proposals as HTML (print-ready, no page breaks) or PDF.
+Generate professional client proposals as print-ready HTML with templated styling.
 
 ## Quick Start
 
@@ -9,7 +9,8 @@ Generate professional client proposals as HTML (print-ready, no page breaks) or 
 // Generate full proposal
 generate_proposal({
   proposal: { ...proposalData },
-  outputFormat: "html"
+  outputFormat: "html",
+  templateId: "default" // or "minimal" or "professional"
 })
 
 // Create draft from minimal info
@@ -44,7 +45,7 @@ npx purprose validate proposal-data.json
   "preparedByTitle": "Your Title (optional)",
   "date": "2026-03-08",
   "validUntil": "2026-04-08",
-  
+
   "sections": [
     {
       "title": "Overview",
@@ -55,9 +56,19 @@ npx purprose validate proposal-data.json
       "title": "Scope of Work",
       "content": "Item 1\nItem 2\nItem 3",
       "type": "list"
+    },
+    {
+      "title": "Project Timeline",
+      "content": "Phase 1: Discovery\nResearch\nStakeholder interviews\n\nPhase 2: Design\nWireframes\nVisual mockups",
+      "type": "timeline"
+    },
+    {
+      "title": "Feature Comparison",
+      "content": "Feature,Basic,Premium\nPages,5,Unlimited\nSupport,Email,Priority",
+      "type": "table"
     }
   ],
-  
+
   "investment": [
     {
       "item": "Website Development",
@@ -72,18 +83,18 @@ npx purprose validate proposal-data.json
       "frequency": "monthly"
     }
   ],
-  
+
   "paymentTerms": {
     "structure": "50-50",
     "notes": "Optional custom terms"
   },
-  
+
   "startDate": "Next business day after starting payment is received",
   "estimatedDuration": "14 days from start",
-  
+
   "contactEmail": "you@example.com",
   "contactPhone": "555-123-4567",
-  
+
   "style": {
     "primaryColor": "#1a1a1a",
     "secondaryColor": "#222222",
@@ -95,6 +106,12 @@ npx purprose validate proposal-data.json
   }
 }
 ```
+
+## Templates
+
+- **default** — Clean Inter font, dark text, balanced spacing
+- **minimal** — Lighter colors, smaller margins, simplified header, no scope-group labels
+- **professional** — Serif header font (Playfair Display), colored accent bar, section dividers
 
 ## Style Rules (CRITICAL)
 
@@ -118,13 +135,18 @@ These rules are enforced in all generated proposals:
 
 - `text` — Paragraphs (split by double newlines)
 - `list` — Bullet points (split by single newlines)
-- `timeline` — Phases with tasks (future)
-- `table` — Comparison tables (future)
+- `timeline` — Phases with tasks (phases separated by blank lines; first line is phase name, subsequent lines are tasks)
+- `table` — Data table (comma-separated values; first row is headers)
 
-## Output Formats
+## Output
 
-- `html` — Print-ready HTML, open in browser and Print to PDF
-- `pdf` — Direct PDF (requires puppeteer, falls back to HTML)
+purprose generates print-ready HTML. To create a PDF:
+
+1. Generate the HTML proposal
+2. Open in a browser
+3. Use Print > Save as PDF
+
+The HTML includes print-optimized CSS that prevents mid-section page breaks.
 
 ## Example Workflow
 
@@ -157,11 +179,12 @@ const final = await update_investment({
 // 4. Generate
 const html = await generate_proposal({
   proposal: final.data,
-  outputFormat: "html"
+  outputFormat: "html",
+  templateId: "professional"
 });
 
-// 5. Save and send
-await writeFile("hair-du-jour-proposal.html", html.data.html);
+// 5. Save and open in browser, print to PDF
+await writeFile("riverside-proposal.html", html.data.html);
 ```
 
 ## Tips

@@ -1,6 +1,16 @@
 import { Proposal, StyleConfig } from './types.js';
 
-// Default style for professional proposals
+// HTML entity escaping for user-provided strings
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Default style for proposals
 const defaultStyle: StyleConfig = {
   primaryColor: '#1a1a1a',
   secondaryColor: '#222222',
@@ -10,12 +20,42 @@ const defaultStyle: StyleConfig = {
   headerFont: "'Inter', -apple-system, sans-serif",
 };
 
+// Minimal template style overrides
+const minimalStyle: Partial<StyleConfig> = {
+  primaryColor: '#2d2d2d',
+  secondaryColor: '#555555',
+  accentColor: '#888888',
+  fontSize: 14,
+};
+
+// Professional template style overrides
+const professionalStyle: Partial<StyleConfig> = {
+  primaryColor: '#1a1a2e',
+  secondaryColor: '#333344',
+  accentColor: '#16213e',
+  headerFont: "'Georgia', 'Times New Roman', serif",
+  fontSize: 14.5,
+};
+
+// Get style defaults for a template
+function getTemplateStyle(templateId: string): Partial<StyleConfig> {
+  switch (templateId) {
+    case 'minimal': return minimalStyle;
+    case 'professional': return professionalStyle;
+    default: return {};
+  }
+}
+
 // Generate CSS — optimized for print/PDF with NO PAGE BREAKS
-function generateCSS(style: StyleConfig): string {
+function generateCSS(style: StyleConfig, templateId: string): string {
   const s = { ...defaultStyle, ...style };
-  
+
+  const isMinimal = templateId === 'minimal';
+  const isProfessional = templateId === 'professional';
+
   return `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    ${isProfessional ? "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap');" : ''}
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -31,27 +71,29 @@ function generateCSS(style: StyleConfig): string {
     .page {
       max-width: 8.5in;
       margin: 0 auto;
-      padding: 56px 80px;
+      padding: ${isMinimal ? '40px 60px' : '56px 80px'};
     }
 
     /* Header */
     .header {
-      margin-bottom: 32px;
+      margin-bottom: ${isMinimal ? '24px' : '32px'};
+      ${isProfessional ? 'border-left: 4px solid ' + s.accentColor + '; padding-left: 20px;' : ''}
     }
 
     .header h1 {
-      font-size: 26px;
-      font-weight: 700;
+      font-size: ${isMinimal ? '22px' : '26px'};
+      font-weight: ${isMinimal ? '600' : '700'};
       letter-spacing: -0.3px;
       color: ${s.primaryColor};
-      margin-bottom: 14px;
+      margin-bottom: ${isMinimal ? '10px' : '14px'};
+      ${isProfessional ? "font-family: 'Playfair Display', " + (s.headerFont || 'serif') + ";" : s.headerFont ? 'font-family: ' + s.headerFont + ';' : ''}
     }
 
     .header-meta {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 6px 32px;
-      font-size: 14.5px;
+      font-size: ${isMinimal ? '13.5px' : '14.5px'};
       color: ${s.secondaryColor};
     }
 
@@ -62,16 +104,22 @@ function generateCSS(style: StyleConfig): string {
 
     /* Sections */
     .section {
-      margin-bottom: 28px;
+      margin-bottom: ${isMinimal ? '22px' : '28px'};
+      ${isProfessional ? 'border-bottom: 1px solid #e8e8e8; padding-bottom: 24px;' : ''}
+    }
+
+    .section:last-child {
+      border-bottom: none;
     }
 
     .section-title {
-      font-size: 15px;
+      font-size: ${isMinimal ? '14px' : '15px'};
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 1px;
       color: ${s.primaryColor};
       margin-bottom: 12px;
+      ${isProfessional ? 'border-bottom: 2px solid ' + s.accentColor + '; padding-bottom: 6px; display: inline-block;' : ''}
     }
 
     .section p {
@@ -104,6 +152,7 @@ function generateCSS(style: StyleConfig): string {
       letter-spacing: 1.2px;
       color: ${s.accentColor};
       margin-bottom: 6px;
+      ${isMinimal ? 'display: none;' : ''}
     }
 
     .scope-list {
@@ -179,6 +228,35 @@ function generateCSS(style: StyleConfig): string {
       font-style: italic;
       color: ${s.accentColor};
       margin-top: 10px;
+    }
+
+    /* Table sections */
+    .section-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+
+    .section-table th {
+      text-align: left;
+      padding: 8px 12px;
+      background: ${s.primaryColor};
+      color: #fff;
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .section-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #e8e8e8;
+      color: ${s.secondaryColor};
+    }
+
+    .section-table tr:last-child td {
+      border-bottom: none;
     }
 
     /* Investment (NOT "Cost") */
@@ -299,7 +377,7 @@ function generateCSS(style: StyleConfig): string {
       .header h1 { font-size: 22px; }
       .section { margin-bottom: 24px; }
       .investment-amount { font-size: 24px; }
-      
+
       /* CRITICAL: Prevent page breaks */
       .section, .scope-group, .timeline-item, .investment-block {
         page-break-inside: avoid;
@@ -318,9 +396,9 @@ function formatCurrency(amount: number): string {
 function renderScopeGroup(label: string, items: string[]): string {
   return `
     <div class="scope-group">
-      <div class="scope-group-label">${label}</div>
+      <div class="scope-group-label">${escapeHtml(label)}</div>
       <ul class="scope-list">
-        ${items.map(item => `<li>${item}</li>`).join('')}
+        ${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
       </ul>
     </div>
   `;
@@ -330,73 +408,131 @@ function renderScopeGroup(label: string, items: string[]): string {
 function renderTimelineItem(phase: string, tasks: string[]): string {
   return `
     <div class="timeline-item">
-      <h3>${phase}</h3>
+      <h3>${escapeHtml(phase)}</h3>
       <ul>
-        ${tasks.map(task => `<li>${task}</li>`).join('')}
+        ${tasks.map(task => `<li>${escapeHtml(task)}</li>`).join('')}
       </ul>
     </div>
   `;
 }
 
+// Parse timeline content: "Phase Name\nTask 1\nTask 2\n\nPhase 2\nTask 3"
+function renderTimelineSection(content: string): string {
+  const phases = content.split('\n\n').filter(block => block.trim());
+  return phases.map(block => {
+    const lines = block.split('\n').filter(l => l.trim());
+    if (lines.length === 0) return '';
+    const phase = lines[0];
+    const tasks = lines.slice(1);
+    return renderTimelineItem(phase, tasks);
+  }).join('');
+}
+
+// Parse table content: "Header1,Header2\nVal1,Val2"
+function renderTableSection(content: string): string {
+  const rows = content.split('\n').filter(l => l.trim());
+  if (rows.length === 0) return '';
+
+  const headers = rows[0].split(',').map(h => h.trim());
+  const dataRows = rows.slice(1);
+
+  return `
+    <table class="section-table">
+      <thead>
+        <tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>
+      </thead>
+      <tbody>
+        ${dataRows.map(row => {
+          const cells = row.split(',').map(c => c.trim());
+          return `<tr>${cells.map(c => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
 // Main template renderer
-export function renderProposal(proposal: Proposal): string {
-  const style = { ...defaultStyle, ...proposal.style };
+export function renderProposal(proposal: Proposal, templateId: string = 'default'): string {
+  const templateDefaults = getTemplateStyle(templateId);
+  const style = { ...defaultStyle, ...templateDefaults, ...proposal.style };
   const total = proposal.investment.reduce((sum, item) => sum + item.amount, 0);
-  
+
   // Calculate deposit if 50-50
-  const deposit = proposal.paymentTerms.structure === '50-50' 
-    ? Math.round(total / 2) 
+  const deposit = proposal.paymentTerms.structure === '50-50'
+    ? Math.round(total / 2)
     : proposal.paymentTerms.deposit || total;
-  
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${proposal.title}</title>
-  <style>${generateCSS(style)}</style>
+  <title>${escapeHtml(proposal.title)}</title>
+  <style>${generateCSS(style, templateId)}</style>
 </head>
 <body>
 <div class="page">
 
   <div class="header">
-    <h1>${proposal.title}</h1>
+    <h1>${escapeHtml(proposal.title)}</h1>
+    ${proposal.subtitle ? `<p style="font-size: 16px; color: ${style.secondaryColor}; margin-bottom: 14px;">${escapeHtml(proposal.subtitle)}</p>` : ''}
     <div class="header-meta">
-      <span><strong>Prepared For:</strong> ${proposal.clientName}${proposal.clientCompany ? ` (${proposal.clientCompany})` : ''}</span>
-      <span><strong>Prepared By:</strong> ${proposal.preparedBy}${proposal.preparedByTitle ? `, ${proposal.preparedByTitle}` : ''}</span>
-      <span><strong>Start:</strong> ${proposal.startDate || 'Next business day after starting payment is received'}</span>
-      <span><strong>Deadline:</strong> ${proposal.estimatedDuration || 'TBD'}</span>
+      <span><strong>Prepared For:</strong> ${escapeHtml(proposal.clientName)}${proposal.clientCompany ? ` (${escapeHtml(proposal.clientCompany)})` : ''}</span>
+      <span><strong>Prepared By:</strong> ${escapeHtml(proposal.preparedBy)}${proposal.preparedByTitle ? `, ${escapeHtml(proposal.preparedByTitle)}` : ''}</span>
+      <span><strong>Start:</strong> ${escapeHtml(proposal.startDate || 'Next business day after starting payment is received')}</span>
+      <span><strong>Deadline:</strong> ${escapeHtml(proposal.estimatedDuration || 'TBD')}</span>
     </div>
   </div>
 
   ${proposal.sections.map(section => {
+    const escapedTitle = escapeHtml(section.title);
+
+    if (section.type === 'timeline') {
+      return `
+        <div class="section">
+          <div class="section-title">${escapedTitle}</div>
+          ${renderTimelineSection(section.content)}
+        </div>
+      `;
+    }
+
+    if (section.type === 'table') {
+      return `
+        <div class="section">
+          <div class="section-title">${escapedTitle}</div>
+          ${renderTableSection(section.content)}
+        </div>
+      `;
+    }
+
     if (section.type === 'list') {
       const items = section.content.split('\n').filter(l => l.trim());
       return `
         <div class="section">
-          <div class="section-title">${section.title}</div>
+          <div class="section-title">${escapedTitle}</div>
           <ul class="scope-list">
-            ${items.map(item => `<li>${item}</li>`).join('')}
+            ${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
           </ul>
         </div>
       `;
     }
+    const cssClass = section.title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
     return `
-      <div class="section ${section.title.toLowerCase().replace(/\s+/g, '-')}">
-        <div class="section-title">${section.title}</div>
-        ${section.content.split('\n\n').map(p => `<p>${p}</p>`).join('')}
+      <div class="section ${cssClass}">
+        <div class="section-title">${escapedTitle}</div>
+        ${section.content.split('\n\n').map(p => `<p>${escapeHtml(p)}</p>`).join('')}
       </div>
     `;
   }).join('')}
 
   <div class="section">
     <div class="section-title">Investment</div>
-    
+
     ${proposal.investment.map(item => `
       <div class="investment-block">
-        <div class="investment-label">${item.item}</div>
-        <div class="investment-amount">${formatCurrency(item.amount)}${item.recurring ? `/${item.frequency}` : ''}</div>
-        ${item.description ? `<div class="investment-desc">${item.description}</div>` : ''}
+        <div class="investment-label">${escapeHtml(item.item)}</div>
+        <div class="investment-amount">${formatCurrency(item.amount)}${item.recurring ? `/${escapeHtml(item.frequency)}` : ''}</div>
+        ${item.description ? `<div class="investment-desc">${escapeHtml(item.description)}</div>` : ''}
       </div>
     `).join('')}
 
@@ -415,14 +551,14 @@ export function renderProposal(proposal: Proposal): string {
           <li><strong>50% completion:</strong> ${formatCurrency(total - deposit)} upon delivery</li>
         ` : proposal.paymentTerms.structure === 'upfront' ? `
           <li><strong>Full payment:</strong> ${formatCurrency(total)} to begin</li>
-        ` : proposal.paymentTerms.milestones ? 
-          proposal.paymentTerms.milestones.map(m => 
-            `<li><strong>${m.percentage}%:</strong> ${m.description}</li>`
-          ).join('') 
-          : `<li>${proposal.paymentTerms.notes || 'Terms to be discussed'}</li>`
+        ` : proposal.paymentTerms.milestones ?
+          proposal.paymentTerms.milestones.map(m =>
+            `<li><strong>${m.percentage}%:</strong> ${escapeHtml(m.description)}</li>`
+          ).join('')
+          : `<li>${escapeHtml(proposal.paymentTerms.notes || 'Terms to be discussed')}</li>`
         }
       </ul>
-      <div class="payment-methods">${proposal.paymentMethods || 'Payment methods to be discussed'}</div>
+      <div class="payment-methods">${escapeHtml(proposal.paymentMethods || 'Payment methods to be discussed')}</div>
     </div>
   </div>
 
@@ -437,10 +573,10 @@ export function renderProposal(proposal: Proposal): string {
   </div>
 
   <div class="footer">
-    ${proposal.contactEmail ? `<a href="mailto:${proposal.contactEmail}">${proposal.contactEmail}</a>` : ''}
+    ${proposal.contactEmail ? `<a href="mailto:${escapeHtml(proposal.contactEmail)}">${escapeHtml(proposal.contactEmail)}</a>` : ''}
     ${proposal.contactEmail && proposal.contactPhone ? ' | ' : ''}
-    ${proposal.contactPhone ? proposal.contactPhone : ''}
-    ${style.footerText ? `<br>${style.footerText}` : ''}
+    ${proposal.contactPhone ? escapeHtml(proposal.contactPhone) : ''}
+    ${style.footerText ? `<br>${escapeHtml(style.footerText)}` : ''}
   </div>
 
 </div>
