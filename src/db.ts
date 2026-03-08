@@ -221,6 +221,46 @@ export function updateProposalStatus(
   return updated ? rowToStoredProposal(updated) : null;
 }
 
+export function updateProposal(
+  id: string,
+  proposal: Proposal,
+  templateId?: string
+): StoredProposal | null {
+  const database = getDb();
+  const existing = database.prepare('SELECT * FROM proposals WHERE id = ?').get(id) as any;
+  if (!existing) return null;
+
+  const now = new Date().toISOString();
+  const totalValue = proposal.investment.reduce((sum, item) => sum + item.amount, 0);
+
+  const stmt = templateId
+    ? database.prepare(`
+        UPDATE proposals SET title = ?, client_name = ?, client_company = ?, prepared_by = ?,
+        total_value = ?, proposal_json = ?, template_id = ?, updated_at = ? WHERE id = ?
+      `)
+    : database.prepare(`
+        UPDATE proposals SET title = ?, client_name = ?, client_company = ?, prepared_by = ?,
+        total_value = ?, proposal_json = ?, updated_at = ? WHERE id = ?
+      `);
+
+  const params = [
+    proposal.title,
+    proposal.clientName,
+    proposal.clientCompany || null,
+    proposal.preparedBy,
+    totalValue,
+    JSON.stringify(proposal),
+    ...(templateId ? [templateId] : []),
+    now,
+    id,
+  ];
+
+  stmt.run(...params);
+
+  const updated = database.prepare('SELECT * FROM proposals WHERE id = ?').get(id);
+  return updated ? rowToStoredProposal(updated) : null;
+}
+
 export function deleteProposal(id: string): boolean {
   const database = getDb();
   const result = database.prepare('DELETE FROM proposals WHERE id = ?').run(id);

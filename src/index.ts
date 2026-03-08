@@ -20,6 +20,7 @@ import {
   get_proposal,
   list_proposals,
   update_proposal_status,
+  update_proposal,
   delete_proposal,
   pipeline_report,
   proposal_history,
@@ -245,6 +246,19 @@ const TOOLS = [
     },
   },
   {
+    name: 'update_proposal',
+    description: 'Update a saved proposal with new data. Replaces proposal content, recalculates total value.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        id: { type: 'string' as const, description: 'Proposal UUID' },
+        proposal: { type: 'object' as const, description: 'Full updated proposal data' },
+        templateId: { type: 'string' as const, enum: ['default', 'minimal', 'professional'], description: 'Optional new template' },
+      },
+      required: ['id', 'proposal'],
+    },
+  },
+  {
     name: 'delete_proposal',
     description: 'Delete a saved proposal and its history.',
     inputSchema: {
@@ -381,6 +395,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         id: string;
         status: string;
         notes?: string;
+      });
+      break;
+    case 'update_proposal':
+      result = await update_proposal(toolArgs as unknown as {
+        id: string;
+        proposal: unknown;
+        templateId?: string;
       });
       break;
     case 'delete_proposal':

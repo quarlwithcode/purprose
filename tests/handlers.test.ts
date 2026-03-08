@@ -10,6 +10,7 @@ import {
   save_proposal,
   get_proposal,
   list_proposals,
+  update_proposal,
   update_proposal_status,
   delete_proposal,
   pipeline_report,
@@ -468,6 +469,60 @@ describe('purprose', () => {
     it('returns error for invalid status', async () => {
       const saved = await save_proposal({ proposal: baseProposal });
       const result = await update_proposal_status({ id: saved.data!.id, status: 'invalid' });
+      expect(result.success).toBe(false);
+    });
+
+    it('updates proposal title', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      const updatedProposal = { ...baseProposal, title: 'Updated Title' };
+      const result = await update_proposal({ id, proposal: updatedProposal });
+      expect(result.success).toBe(true);
+      expect(result.data?.title).toBe('Updated Title');
+      expect(result.data?.proposal.title).toBe('Updated Title');
+    });
+
+    it('updates proposal sections', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      const updatedProposal = {
+        ...baseProposal,
+        sections: [
+          { title: 'New Section', content: 'New content', type: 'text' as const },
+          { title: 'Another', content: 'More content', type: 'list' as const },
+        ],
+      };
+      const result = await update_proposal({ id, proposal: updatedProposal });
+      expect(result.success).toBe(true);
+      expect(result.data?.proposal.sections.length).toBe(2);
+      expect(result.data?.proposal.sections[0].title).toBe('New Section');
+    });
+
+    it('update recalculates total_value', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      expect(saved.data?.totalValue).toBe(1000);
+      const updatedProposal = {
+        ...baseProposal,
+        investment: [
+          { item: 'Design', amount: 2000, recurring: false, frequency: 'one-time' as const },
+          { item: 'Dev', amount: 3000, recurring: false, frequency: 'one-time' as const },
+        ],
+      };
+      const result = await update_proposal({ id, proposal: updatedProposal });
+      expect(result.success).toBe(true);
+      expect(result.data?.totalValue).toBe(5000);
+    });
+
+    it('update nonexistent ID returns error', async () => {
+      const result = await update_proposal({ id: 'nonexistent-uuid', proposal: baseProposal });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
+    });
+
+    it('update with invalid proposal data is rejected', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const result = await update_proposal({ id: saved.data!.id, proposal: { title: 'missing fields' } });
       expect(result.success).toBe(false);
     });
 

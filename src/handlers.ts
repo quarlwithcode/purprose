@@ -17,6 +17,7 @@ import {
   saveProposal as dbSave,
   getProposal as dbGet,
   listProposals as dbList,
+  updateProposal as dbUpdate,
   updateProposalStatus as dbUpdateStatus,
   deleteProposal as dbDelete,
   getProposalHistory as dbHistory,
@@ -272,6 +273,26 @@ export async function update_proposal_status(input: {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Invalid status',
+    };
+  }
+}
+
+export async function update_proposal(input: {
+  id: string;
+  proposal: unknown;
+  templateId?: string;
+}): Promise<ToolResponse<StoredProposal>> {
+  try {
+    const proposal = ProposalSchema.parse(input.proposal);
+    const stored = dbUpdate(input.id, proposal, input.templateId);
+    if (!stored) {
+      return { success: false, error: `Proposal not found: ${input.id}` };
+    }
+    return { success: true, data: stored };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Invalid proposal data',
     };
   }
 }
