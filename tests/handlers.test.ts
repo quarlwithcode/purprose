@@ -437,22 +437,23 @@ describe('purprose', () => {
       const saved = await save_proposal({ proposal: baseProposal });
       const id = saved.data!.id;
 
+      await update_proposal_status({ id, status: 'reviewed' });
       const updated = await update_proposal_status({ id, status: 'sent', notes: 'Emailed to client' });
       expect(updated.success).toBe(true);
       expect(updated.data?.status).toBe('sent');
 
       const historyResult = await proposal_history({ id });
-      expect(historyResult.data?.history.length).toBe(2); // initial + update
-      expect(historyResult.data?.history[1].fromStatus).toBe('draft');
-      expect(historyResult.data?.history[1].toStatus).toBe('sent');
-      expect(historyResult.data?.history[1].notes).toBe('Emailed to client');
+      expect(historyResult.data?.history.length).toBe(3); // initial + reviewed + sent
+      expect(historyResult.data?.history[2].fromStatus).toBe('reviewed');
+      expect(historyResult.data?.history[2].toStatus).toBe('sent');
+      expect(historyResult.data?.history[2].notes).toBe('Emailed to client');
     });
 
     it('deletes proposal with cascaded history', async () => {
       const saved = await save_proposal({ proposal: baseProposal });
       const id = saved.data!.id;
 
-      await update_proposal_status({ id, status: 'sent' });
+      await update_proposal_status({ id, status: 'reviewed' });
 
       const deleteResult = await delete_proposal({ id });
       expect(deleteResult.success).toBe(true);
@@ -576,6 +577,74 @@ describe('purprose', () => {
       expect(result.error).toContain('not found');
     });
 
+    it('new statuses work: internal_review, viewed, revision_requested, rejected, archived', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+
+      const r1 = await update_proposal_status({ id, status: 'internal_review' });
+      expect(r1.success).toBe(true);
+      expect(r1.data?.status).toBe('internal_review');
+
+      const r2 = await update_proposal_status({ id, status: 'reviewed' });
+      expect(r2.success).toBe(true);
+
+      const r3 = await update_proposal_status({ id, status: 'sent' });
+      expect(r3.success).toBe(true);
+
+      const r4 = await update_proposal_status({ id, status: 'viewed' });
+      expect(r4.success).toBe(true);
+      expect(r4.data?.status).toBe('viewed');
+
+      const r5 = await update_proposal_status({ id, status: 'revision_requested' });
+      expect(r5.success).toBe(true);
+      expect(r5.data?.status).toBe('revision_requested');
+    });
+
+    it('valid transitions succeed', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+
+      // draft → reviewed → sent → approved → won
+      const steps = ['reviewed', 'sent', 'approved', 'won'];
+      for (const status of steps) {
+        const result = await update_proposal_status({ id, status });
+        expect(result.success).toBe(true);
+        expect(result.data?.status).toBe(status);
+      }
+    });
+
+    it('invalid transitions are rejected with error message', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+
+      // draft → won is not valid
+      const result = await update_proposal_status({ id, status: 'won' });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Invalid transition');
+      expect(result.error).toContain('draft');
+      expect(result.error).toContain('won');
+    });
+
+    it('rejected proposals can return to draft', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      await update_proposal_status({ id, status: 'sent' });
+      await update_proposal_status({ id, status: 'rejected' });
+      const result = await update_proposal_status({ id, status: 'draft' });
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('draft');
+    });
+
+    it('archived is a terminal state', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'archived' });
+      const result = await update_proposal_status({ id, status: 'draft' });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('none (terminal state)');
+    });
+
     it('generate_proposal with save=true persists to db', async () => {
       const result = await generate_proposal({
         proposal: baseProposal,
@@ -614,18 +683,32 @@ describe('purprose', () => {
       expect(result.data?.winLoss.winRate).toBe(0);
     });
 
+    // Helper: transition a proposal through valid states to target
+    async function transitionTo(id: string, target: string) {
+      const paths: Record<string, string[]> = {
+        reviewed: ['reviewed'],
+        sent: ['reviewed', 'sent'],
+        approved: ['reviewed', 'sent', 'approved'],
+        won: ['reviewed', 'sent', 'approved', 'won'],
+        lost: ['reviewed', 'sent', 'lost'],
+      };
+      for (const status of (paths[target] || [])) {
+        await update_proposal_status({ id, status });
+      }
+    }
+
     it('aggregates pipeline data correctly', async () => {
       await save_proposal({ proposal: baseProposal, status: 'draft' }); // $1000
-      await save_proposal({
+      const sentProposal = await save_proposal({
         proposal: { ...baseProposal, investment: [{ item: 'Big Project', amount: 5000, recurring: false, frequency: 'one-time' as const }] },
-        status: 'sent',
       });
+      await transitionTo(sentProposal.data!.id, 'sent');
 
       const saved = await save_proposal({
         proposal: { ...baseProposal, investment: [{ item: 'Won Deal', amount: 3000, recurring: false, frequency: 'one-time' as const }] },
         status: 'draft',
       });
-      await update_proposal_status({ id: saved.data!.id, status: 'won' });
+      await transitionTo(saved.data!.id, 'won');
 
       const result = await pipeline_report();
       expect(result.data?.total).toBe(3);
@@ -638,15 +721,27 @@ describe('purprose', () => {
       // Create 3 won, 1 lost
       for (let i = 0; i < 3; i++) {
         const saved = await save_proposal({ proposal: baseProposal });
-        await update_proposal_status({ id: saved.data!.id, status: 'won' });
+        await transitionTo(saved.data!.id, 'won');
       }
       const lost = await save_proposal({ proposal: baseProposal });
-      await update_proposal_status({ id: lost.data!.id, status: 'lost' });
+      await transitionTo(lost.data!.id, 'lost');
 
       const result = await pipeline_report();
       expect(result.data?.winLoss.won).toBe(3);
       expect(result.data?.winLoss.lost).toBe(1);
       expect(result.data?.winLoss.winRate).toBe(75);
+    });
+
+    it('pipeline weights correct for new statuses', async () => {
+      // internal_review=0.15, viewed=0.6, revision_requested=0.4
+      const saved1 = await save_proposal({
+        proposal: { ...baseProposal, investment: [{ item: 'A', amount: 1000, recurring: false, frequency: 'one-time' as const }] },
+      });
+      await update_proposal_status({ id: saved1.data!.id, status: 'internal_review' });
+
+      const result = await pipeline_report();
+      // $1000 * 0.15 = $150 weighted
+      expect(result.data?.weightedValue).toBe(150);
     });
 
     it('reports top clients', async () => {

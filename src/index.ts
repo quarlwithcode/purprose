@@ -202,7 +202,7 @@ const TOOLS = [
       properties: {
         proposal: { type: 'object' as const, description: 'Full proposal data to save' },
         templateId: { type: 'string' as const, enum: ['default', 'minimal', 'professional'], default: 'default' },
-        status: { type: 'string' as const, enum: ['draft', 'reviewed', 'sent', 'approved', 'won', 'lost'], default: 'draft' },
+        status: { type: 'string' as const, enum: ['draft', 'internal_review', 'reviewed', 'sent', 'viewed', 'revision_requested', 'approved', 'rejected', 'won', 'lost', 'archived'], default: 'draft' },
       },
       required: ['proposal'],
     },
@@ -224,7 +224,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        status: { type: 'string' as const, enum: ['draft', 'reviewed', 'sent', 'approved', 'won', 'lost'], description: 'Filter by status' },
+        status: { type: 'string' as const, enum: ['draft', 'internal_review', 'reviewed', 'sent', 'viewed', 'revision_requested', 'approved', 'rejected', 'won', 'lost', 'archived'], description: 'Filter by status' },
         client: { type: 'string' as const, description: 'Filter by client name (partial match)' },
         dateFrom: { type: 'string' as const, description: 'Filter from date (ISO 8601)' },
         dateTo: { type: 'string' as const, description: 'Filter to date (ISO 8601)' },
@@ -235,12 +235,12 @@ const TOOLS = [
   },
   {
     name: 'update_proposal_status',
-    description: 'Update the status of a saved proposal (draft → reviewed → sent → approved → won/lost).',
+    description: 'Update the status of a saved proposal. Enforces valid transitions between lifecycle states.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         id: { type: 'string' as const, description: 'Proposal UUID' },
-        status: { type: 'string' as const, enum: ['draft', 'reviewed', 'sent', 'approved', 'won', 'lost'], description: 'New status' },
+        status: { type: 'string' as const, enum: ['draft', 'internal_review', 'reviewed', 'sent', 'viewed', 'revision_requested', 'approved', 'rejected', 'won', 'lost', 'archived'], description: 'New status' },
         notes: { type: 'string' as const, description: 'Optional notes about the status change' },
       },
       required: ['id', 'status'],

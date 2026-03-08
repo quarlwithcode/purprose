@@ -85,7 +85,10 @@ export const GenerateProposalRequestSchema = z.object({
 export type GenerateProposalRequest = z.infer<typeof GenerateProposalRequestSchema>;
 
 // Proposal status lifecycle
-export const ProposalStatusSchema = z.enum(['draft', 'reviewed', 'sent', 'approved', 'won', 'lost']);
+export const ProposalStatusSchema = z.enum([
+  'draft', 'internal_review', 'reviewed', 'sent', 'viewed',
+  'revision_requested', 'approved', 'rejected', 'won', 'lost', 'archived',
+]);
 export type ProposalStatus = z.infer<typeof ProposalStatusSchema>;
 
 // Stored proposal (wraps Proposal with persistence metadata)

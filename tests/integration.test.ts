@@ -49,12 +49,15 @@ describe('integration: full proposal lifecycle', () => {
     const sent = await update_proposal_status({ id, status: 'sent', notes: 'Sent via email' });
     expect(sent.data!.status).toBe('sent');
 
+    const approved = await update_proposal_status({ id, status: 'approved', notes: 'Client approved' });
+    expect(approved.data!.status).toBe('approved');
+
     const won = await update_proposal_status({ id, status: 'won', notes: 'Client accepted' });
     expect(won.data!.status).toBe('won');
 
     // Step 4: Check history
     const history = await proposal_history({ id });
-    expect(history.data!.history.length).toBe(4); // draft → reviewed → sent → won
+    expect(history.data!.history.length).toBe(5); // draft → reviewed → sent → approved → won
 
     // Step 5: Generate HTML from stored proposal
     const stored = await get_proposal({ id });
@@ -76,6 +79,13 @@ describe('integration: full proposal lifecycle', () => {
   });
 
   it('multi-proposal pipeline with mixed statuses', async () => {
+    const transitionPaths: Record<string, string[]> = {
+      won: ['reviewed', 'sent', 'approved', 'won'],
+      sent: ['reviewed', 'sent'],
+      lost: ['reviewed', 'sent', 'lost'],
+      draft: [],
+    };
+
     const proposals = [
       { client: 'Alpha Inc', budget: 5000, status: 'won' },
       { client: 'Beta LLC', budget: 10000, status: 'sent' },
@@ -91,8 +101,8 @@ describe('integration: full proposal lifecycle', () => {
         preparedBy: 'Author',
       });
       const saved = await save_proposal({ proposal: draft.data! });
-      if (p.status !== 'draft') {
-        await update_proposal_status({ id: saved.data!.id, status: p.status });
+      for (const status of transitionPaths[p.status]) {
+        await update_proposal_status({ id: saved.data!.id, status });
       }
     }
 
@@ -120,6 +130,7 @@ describe('integration: full proposal lifecycle', () => {
       preparedBy: 'Dev Lead',
     });
     const saved = await save_proposal({ proposal: draft.data! });
+    await update_proposal_status({ id: saved.data!.id, status: 'reviewed' });
     await update_proposal_status({ id: saved.data!.id, status: 'sent' });
 
     const alignment = await check_crm_alignment({

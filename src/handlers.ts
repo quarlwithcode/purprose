@@ -26,6 +26,21 @@ import {
 } from './db.js';
 import { isPuppeteerAvailable, htmlToPdf } from './pdf.js';
 
+// Valid status transitions
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  draft: ['internal_review', 'reviewed', 'archived'],
+  internal_review: ['reviewed', 'draft', 'archived'],
+  reviewed: ['sent', 'draft', 'archived'],
+  sent: ['viewed', 'revision_requested', 'approved', 'rejected', 'lost', 'archived'],
+  viewed: ['revision_requested', 'approved', 'rejected', 'lost', 'archived'],
+  revision_requested: ['draft', 'reviewed', 'sent', 'archived'],
+  approved: ['won', 'lost', 'archived'],
+  rejected: ['draft', 'archived'],
+  won: ['archived'],
+  lost: ['draft', 'archived'],
+  archived: [],
+};
+
 // Generate proposal HTML (with optional save and PDF)
 export async function generate_proposal(
   request: GenerateProposalRequest & { save?: boolean }
@@ -265,6 +280,21 @@ export async function update_proposal_status(input: {
 }): Promise<ToolResponse<StoredProposal>> {
   try {
     const status = ProposalStatusSchema.parse(input.status);
+
+    // Check current status for transition validation
+    const existing = dbGet(input.id);
+    if (!existing) {
+      return { success: false, error: `Proposal not found: ${input.id}` };
+    }
+
+    const allowed = VALID_TRANSITIONS[existing.status];
+    if (allowed && !allowed.includes(status)) {
+      return {
+        success: false,
+        error: `Invalid transition: "${existing.status}" cannot move to "${status}". Valid transitions: ${allowed.join(', ') || 'none (terminal state)'}`,
+      };
+    }
+
     const stored = dbUpdateStatus(input.id, status, input.notes);
     if (!stored) {
       return { success: false, error: `Proposal not found: ${input.id}` };

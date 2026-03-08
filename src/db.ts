@@ -315,8 +315,11 @@ export interface PipelineSummary {
 
 const STATUS_WEIGHTS: Record<string, number> = {
   draft: 0.1,
+  internal_review: 0.15,
   reviewed: 0.25,
   sent: 0.5,
+  viewed: 0.6,
+  revision_requested: 0.4,
   approved: 0.75,
 };
 
