@@ -11,6 +11,7 @@ import {
   delete_proposal,
 } from './handlers.js';
 import { isPuppeteerAvailable, htmlToPdf } from './pdf.js';
+import { getMigrationStatus } from './db.js';
 
 const HELP = `
 purprose — Proposal Generation & Management CLI
@@ -23,6 +24,8 @@ USAGE:
   purprose get <id>
   purprose status <id> <new-status> [--notes "reason"]
   purprose delete <id>
+  purprose migrate
+  purprose migrate status
   purprose help
 
 COMMANDS:
@@ -33,6 +36,8 @@ COMMANDS:
   get         Retrieve a saved proposal by ID
   status      Update proposal status
   delete      Delete a saved proposal
+  migrate     Run pending database migrations
+  migrate status  Show migration status
 
 OPTIONS:
   --output, -o      Output file path (default: proposal.html)
@@ -317,6 +322,33 @@ async function main() {
       }
 
       console.log(`Deleted proposal: ${id}`);
+      break;
+    }
+
+    case 'migrate': {
+      const subcommand = args[1];
+      const status = getMigrationStatus();
+
+      if (subcommand === 'status') {
+        console.log(`\nMigration Status`);
+        console.log(`Current version: ${status.currentVersion}`);
+        console.log(`Pending: ${status.pendingCount}\n`);
+        for (const m of status.migrations) {
+          const marker = m.applied ? '[applied]' : '[pending]';
+          console.log(`  ${String(m.version).padStart(3, '0')}  ${marker}  ${m.name}`);
+        }
+      } else {
+        if (status.pendingCount === 0) {
+          console.log('All migrations are up to date.');
+        } else {
+          console.log(`Applied ${status.pendingCount} migration(s). Current version: ${status.currentVersion}`);
+          for (const m of status.migrations) {
+            if (m.applied) {
+              console.log(`  ${String(m.version).padStart(3, '0')}  ${m.name}`);
+            }
+          }
+        }
+      }
       break;
     }
 

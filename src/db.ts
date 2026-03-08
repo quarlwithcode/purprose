@@ -4,8 +4,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import type { StoredProposal, ProposalStatus, ProposalFilters, StatusHistoryEntry, Proposal } from './types.js';
-
-const SCHEMA_VERSION = 1;
+import { migrations } from './migrations/index.js';
 
 let db: Database.Database | null = null;
 
@@ -53,39 +52,36 @@ function runMigrations(database: Database.Database): void {
   const row = database.prepare('SELECT MAX(version) as v FROM schema_version').get() as { v: number | null } | undefined;
   const currentVersion = row?.v ?? 0;
 
-  if (currentVersion < 1) {
-    database.exec(`
-      CREATE TABLE IF NOT EXISTS proposals (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        client_name TEXT NOT NULL,
-        client_company TEXT,
-        prepared_by TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'draft',
-        total_value REAL NOT NULL DEFAULT 0,
-        proposal_json TEXT NOT NULL,
-        template_id TEXT DEFAULT 'default',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS status_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        proposal_id TEXT NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
-        from_status TEXT,
-        to_status TEXT NOT NULL,
-        notes TEXT,
-        changed_at TEXT NOT NULL
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_proposals_status ON proposals(status);
-      CREATE INDEX IF NOT EXISTS idx_proposals_client ON proposals(client_name);
-      CREATE INDEX IF NOT EXISTS idx_proposals_created ON proposals(created_at);
-      CREATE INDEX IF NOT EXISTS idx_status_history_proposal ON status_history(proposal_id);
-
-      INSERT INTO schema_version (version) VALUES (1);
-    `);
+  for (const migration of migrations) {
+    if (currentVersion < migration.version) {
+      migration.up(database);
+      database.prepare('INSERT INTO schema_version (version) VALUES (?)').run(migration.version);
+    }
   }
+}
+
+export interface MigrationStatus {
+  currentVersion: number;
+  pendingCount: number;
+  migrations: Array<{ version: number; name: string; applied: boolean }>;
+}
+
+export function getMigrationStatus(): MigrationStatus {
+  const database = getDb();
+  const row = database.prepare('SELECT MAX(version) as v FROM schema_version').get() as { v: number | null } | undefined;
+  const currentVersion = row?.v ?? 0;
+
+  const appliedVersions = (database.prepare('SELECT version FROM schema_version').all() as Array<{ version: number }>)
+    .map(r => r.version);
+
+  let pendingCount = 0;
+  const migrationList = migrations.map(m => {
+    const applied = appliedVersions.includes(m.version);
+    if (!applied) pendingCount++;
+    return { version: m.version, name: m.name, applied };
+  });
+
+  return { currentVersion, pendingCount, migrations: migrationList };
 }
 
 function rowToStoredProposal(row: any): StoredProposal {
