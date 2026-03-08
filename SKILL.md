@@ -51,7 +51,7 @@ npx purprose status <uuid> sent --notes "Emailed to client"
 npx purprose delete <uuid>
 ```
 
-## MCP Tools (14)
+## MCP Tools (16)
 
 ### Generation (6 tools)
 | Tool | Description |
@@ -63,13 +63,15 @@ npx purprose delete <uuid>
 | `update_investment` | Replace investment/pricing line items |
 | `list_templates` | List available templates: default, minimal, professional |
 
-### Lifecycle (5 tools)
+### Lifecycle (7 tools)
 | Tool | Description |
 |------|-------------|
 | `save_proposal` | Persist proposal to SQLite database with status and template |
 | `get_proposal` | Retrieve a saved proposal by UUID |
 | `list_proposals` | List/filter proposals by status, client, date range with pagination |
-| `update_proposal_status` | Transition status with optional notes. Records audit trail |
+| `update_proposal` | Update a saved proposal with new data. Recalculates total value |
+| `clone_proposal` | Clone a proposal with optional client/title/company overrides. New UUID, draft status |
+| `update_proposal_status` | Transition status with optional notes. Enforces valid transitions |
 | `delete_proposal` | Delete proposal and cascaded status history |
 
 ### Analytics (2 tools)
@@ -83,7 +85,7 @@ npx purprose delete <uuid>
 |------|-------------|
 | `check_crm_alignment` | Compare proposal against CRM data: client name, deal value, stage mapping, dates, gaps |
 
-## CLI Commands (8)
+## CLI Commands (12)
 
 | Command | Description |
 |---------|-------------|
@@ -92,23 +94,36 @@ npx purprose delete <uuid>
 | `validate <input.json>` | Validate proposal structure |
 | `list` | List proposals. Options: `--status`, `--client` |
 | `get <id>` | Show proposal details |
+| `update <id> <input.json>` | Update proposal with new data. Options: `--template` |
+| `clone <id>` | Clone proposal. Options: `--client`, `--title`, `--company` |
 | `status <id> <status>` | Update status. Options: `--notes` |
 | `delete <id>` | Delete proposal |
+| `migrate` | Run pending database migrations |
+| `migrate status` | Show migration status |
 | `help` | Show help text |
 
-## Lifecycle States
+## Lifecycle States (11)
 
 ```
-draft → reviewed → sent → approved → won
-                                   → lost
+draft → internal_review → reviewed → sent → viewed → approved → won
+                                          → revision_requested   → lost
+                                          → rejected
+                                                         any → archived
 ```
 
 - **draft**: Initial state when saved
-- **reviewed**: Internally reviewed by team
+- **internal_review**: Under internal team review
+- **reviewed**: Internally reviewed, ready to send
 - **sent**: Delivered to client
+- **viewed**: Client has viewed the proposal
+- **revision_requested**: Client requested changes
 - **approved**: Client approved, pending close
+- **rejected**: Client rejected the proposal
 - **won**: Deal closed successfully
 - **lost**: Deal lost
+- **archived**: Terminal state, no further transitions
+
+Status transitions are enforced. Invalid transitions return descriptive errors.
 
 ## Proposal Structure
 
@@ -218,7 +233,7 @@ These rules are enforced in all generated proposals:
 
 The `pipeline_report` tool provides:
 - **Proposal counts and values** broken down by status
-- **Weighted pipeline value** using status weights (draft=10%, reviewed=25%, sent=50%, approved=75%)
+- **Weighted pipeline value** using status weights (draft=10%, internal_review=15%, reviewed=25%, revision_requested=40%, sent=50%, viewed=60%, approved=75%)
 - **Win/loss statistics**: win count, loss count, win rate percentage
 - **Average deal values** for won and lost proposals
 - **Recent activity**: last 10 status changes across all proposals
