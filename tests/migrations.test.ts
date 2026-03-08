@@ -53,4 +53,35 @@ describe('migration infrastructure', () => {
     expect(status.currentVersion).toBeGreaterThanOrEqual(1);
     // If we can getMigrationStatus and tables exist, the migration worked
   });
+
+  it('reports pending migrations when db is at older version', () => {
+    // Create a raw DB with only schema_version at v1 (simulating a DB that only ran migration 1)
+    const rawDb = new Database(':memory:');
+    rawDb.exec(`
+      CREATE TABLE schema_version (version INTEGER PRIMARY KEY);
+      INSERT INTO schema_version VALUES (1);
+    `);
+    // Also create the tables from migration 1 so initDb doesn't fail
+    rawDb.exec(`
+      CREATE TABLE proposals (
+        id TEXT PRIMARY KEY, title TEXT NOT NULL, client_name TEXT NOT NULL,
+        client_company TEXT, prepared_by TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft',
+        template_id TEXT NOT NULL DEFAULT 'default', total_value REAL NOT NULL DEFAULT 0,
+        proposal_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+      );
+      CREATE TABLE status_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, proposal_id TEXT NOT NULL,
+        from_status TEXT NOT NULL, to_status TEXT NOT NULL,
+        notes TEXT, changed_at TEXT NOT NULL,
+        FOREIGN KEY (proposal_id) REFERENCES proposals(id) ON DELETE CASCADE
+      );
+    `);
+    // initDb will detect v1 and apply v2
+    initDb(rawDb);
+    const status = getMigrationStatus();
+    expect(status.currentVersion).toBe(migrations.length);
+    // All migrations should now be applied
+    expect(status.pendingCount).toBe(0);
+    expect(status.migrations.filter(m => m.applied).length).toBe(migrations.length);
+  });
 });

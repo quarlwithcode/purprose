@@ -528,6 +528,26 @@ describe('purprose', () => {
       expect(result.success).toBe(false);
     });
 
+    it('update_proposal with templateId override changes template', async () => {
+      const saved = await save_proposal({ proposal: baseProposal, templateId: 'default' });
+      const id = saved.data!.id;
+      expect(saved.data?.templateId).toBe('default');
+      const result = await update_proposal({ id, proposal: baseProposal, templateId: 'professional' });
+      expect(result.success).toBe(true);
+      expect(result.data?.templateId).toBe('professional');
+    });
+
+    it('update_proposal on non-draft status preserves status', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      const updatedProposal = { ...baseProposal, title: 'Updated While Reviewed' };
+      const result = await update_proposal({ id, proposal: updatedProposal });
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('reviewed');
+      expect(result.data?.title).toBe('Updated While Reviewed');
+    });
+
     it('clones proposal preserving sections and investment', async () => {
       const saved = await save_proposal({ proposal: baseProposal });
       const result = await clone_proposal({ id: saved.data!.id });
@@ -569,6 +589,13 @@ describe('purprose', () => {
       await clone_proposal({ id: saved.data!.id, newClientName: 'Different' });
       const original = await get_proposal({ id: saved.data!.id });
       expect(original.data?.clientName).toBe('Test Client');
+    });
+
+    it('clone preserves non-default template from source', async () => {
+      const saved = await save_proposal({ proposal: baseProposal, templateId: 'professional' });
+      const result = await clone_proposal({ id: saved.data!.id });
+      expect(result.success).toBe(true);
+      expect(result.data?.templateId).toBe('professional');
     });
 
     it('clone nonexistent ID returns error', async () => {
@@ -643,6 +670,101 @@ describe('purprose', () => {
       const result = await update_proposal_status({ id, status: 'draft' });
       expect(result.success).toBe(false);
       expect(result.error).toContain('none (terminal state)');
+    });
+
+    it('internal_review → draft (revert from review)', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'internal_review' });
+      const result = await update_proposal_status({ id, status: 'draft' });
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('draft');
+    });
+
+    it('sent → rejected', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      await update_proposal_status({ id, status: 'sent' });
+      const result = await update_proposal_status({ id, status: 'rejected' });
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('rejected');
+    });
+
+    it('sent → lost', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      await update_proposal_status({ id, status: 'sent' });
+      const result = await update_proposal_status({ id, status: 'lost' });
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('lost');
+    });
+
+    it('viewed → approved', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      await update_proposal_status({ id, status: 'sent' });
+      await update_proposal_status({ id, status: 'viewed' });
+      const result = await update_proposal_status({ id, status: 'approved' });
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('approved');
+    });
+
+    it('viewed → rejected', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      await update_proposal_status({ id, status: 'sent' });
+      await update_proposal_status({ id, status: 'viewed' });
+      const result = await update_proposal_status({ id, status: 'rejected' });
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('rejected');
+    });
+
+    it('viewed → lost', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      await update_proposal_status({ id, status: 'sent' });
+      await update_proposal_status({ id, status: 'viewed' });
+      const result = await update_proposal_status({ id, status: 'lost' });
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('lost');
+    });
+
+    it('revision_requested → draft', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      await update_proposal_status({ id, status: 'sent' });
+      await update_proposal_status({ id, status: 'revision_requested' });
+      const result = await update_proposal_status({ id, status: 'draft' });
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('draft');
+    });
+
+    it('revision_requested → reviewed', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      await update_proposal_status({ id, status: 'sent' });
+      await update_proposal_status({ id, status: 'revision_requested' });
+      const result = await update_proposal_status({ id, status: 'reviewed' });
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('reviewed');
+    });
+
+    it('revision_requested → sent', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      await update_proposal_status({ id, status: 'sent' });
+      await update_proposal_status({ id, status: 'revision_requested' });
+      const result = await update_proposal_status({ id, status: 'sent' });
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('sent');
     });
 
     it('generate_proposal with save=true persists to db', async () => {
@@ -824,6 +946,44 @@ describe('purprose', () => {
       });
       expect(result.success).toBe(true);
       expect(result.data?.clientNameMatch).toBe(true);
+    });
+
+    it('CRM stage alignment for viewed status with dealStage proposal', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      await update_proposal_status({ id, status: 'sent' });
+      await update_proposal_status({ id, status: 'viewed' });
+
+      const result = await check_crm_alignment({
+        id,
+        crmContext: { companyName: 'Test Client', dealStage: 'proposal' },
+      });
+      expect(result.success).toBe(true);
+      // stageMap 'proposal' maps to ['sent'], but proposal is 'viewed' — should flag misalignment
+      expect(result.data?.stageAlignment?.proposalStatus).toBe('viewed');
+      expect(result.data?.stageAlignment?.crmStage).toBe('proposal');
+      expect(result.data?.stageAlignment?.suggestion).toBeDefined();
+      expect(result.data?.gaps.length).toBeGreaterThan(0);
+    });
+
+    it('CRM stage alignment for revision_requested status with dealStage negotiation', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const id = saved.data!.id;
+      await update_proposal_status({ id, status: 'reviewed' });
+      await update_proposal_status({ id, status: 'sent' });
+      await update_proposal_status({ id, status: 'revision_requested' });
+
+      const result = await check_crm_alignment({
+        id,
+        crmContext: { companyName: 'Test Client', dealStage: 'negotiation' },
+      });
+      expect(result.success).toBe(true);
+      // stageMap 'negotiation' maps to ['sent', 'approved'], but proposal is 'revision_requested'
+      expect(result.data?.stageAlignment?.proposalStatus).toBe('revision_requested');
+      expect(result.data?.stageAlignment?.crmStage).toBe('negotiation');
+      expect(result.data?.stageAlignment?.suggestion).toBeDefined();
+      expect(result.data?.gaps.length).toBeGreaterThan(0);
     });
 
     it('returns error when neither proposal nor id provided', async () => {

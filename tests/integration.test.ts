@@ -5,6 +5,8 @@ import {
   draft_proposal,
   save_proposal,
   generate_proposal,
+  update_proposal,
+  clone_proposal,
   update_proposal_status,
   pipeline_report,
   proposal_history,
@@ -147,6 +149,96 @@ describe('integration: full proposal lifecycle', () => {
     expect(alignment.data!.clientNameMatch).toBe(true);
     expect(alignment.data!.stageAlignment!.proposalStatus).toBe('sent');
     expect(alignment.data!.valueAlignment!.delta).toBe(-5000);
+  });
+
+  it('update preserves status through content change', async () => {
+    const baseProposal = {
+      title: 'Update Test',
+      clientName: 'Update Client',
+      preparedBy: 'Author',
+      date: '2026-03-08',
+      sections: [{ title: 'Scope', content: 'Original scope', type: 'text' as const }],
+      investment: [{ item: 'Service', amount: 5000, recurring: false, frequency: 'one-time' as const }],
+      paymentTerms: { structure: '50-50' as const },
+    };
+
+    const saved = await save_proposal({ proposal: baseProposal });
+    const id = saved.data!.id;
+
+    // Transition to reviewed
+    await update_proposal_status({ id, status: 'reviewed' });
+
+    // Update content while in reviewed status
+    const updatedProposal = { ...baseProposal, sections: [{ title: 'Scope', content: 'Revised scope', type: 'text' as const }] };
+    const result = await update_proposal({ id, proposal: updatedProposal });
+    expect(result.success).toBe(true);
+    expect(result.data?.status).toBe('reviewed');
+    expect(result.data?.proposal.sections[0].content).toBe('Revised scope');
+  });
+
+  it('clone → full lifecycle on cloned proposal', async () => {
+    const baseProposal = {
+      title: 'Template Proposal',
+      clientName: 'Original Client',
+      preparedBy: 'Author',
+      date: '2026-03-08',
+      sections: [{ title: 'Overview', content: 'Reusable content', type: 'text' as const }],
+      investment: [{ item: 'Service', amount: 8000, recurring: false, frequency: 'one-time' as const }],
+      paymentTerms: { structure: '50-50' as const },
+    };
+
+    const saved = await save_proposal({ proposal: baseProposal });
+
+    // Clone with overrides
+    const cloned = await clone_proposal({
+      id: saved.data!.id,
+      newClientName: 'New Client',
+      newTitle: 'Cloned Proposal',
+    });
+    expect(cloned.success).toBe(true);
+    expect(cloned.data?.status).toBe('draft');
+
+    const cloneId = cloned.data!.id;
+
+    // Transition clone through full lifecycle
+    for (const status of ['reviewed', 'sent', 'approved', 'won']) {
+      const r = await update_proposal_status({ id: cloneId, status });
+      expect(r.success).toBe(true);
+    }
+
+    const history = await proposal_history({ id: cloneId });
+    expect(history.data!.history.length).toBe(5); // draft + 4 transitions
+
+    // Original unchanged
+    const original = await get_proposal({ id: saved.data!.id });
+    expect(original.data?.status).toBe('draft');
+  });
+
+  it('update recalculates pipeline values', async () => {
+    const makeProposal = (amount: number, client: string) => ({
+      title: `${client} Proposal`,
+      clientName: client,
+      preparedBy: 'Author',
+      date: '2026-03-08',
+      sections: [{ title: 'S', content: 'C', type: 'text' as const }],
+      investment: [{ item: 'Service', amount, recurring: false, frequency: 'one-time' as const }],
+      paymentTerms: { structure: '50-50' as const },
+    });
+
+    const saved1 = await save_proposal({ proposal: makeProposal(5000, 'Client A') });
+    const saved2 = await save_proposal({ proposal: makeProposal(3000, 'Client B') });
+
+    // Check initial pipeline
+    let report = await pipeline_report();
+    expect(report.data?.totalActiveValue).toBe(8000);
+
+    // Update one proposal's investment
+    const updatedProposal = makeProposal(10000, 'Client A');
+    await update_proposal({ id: saved1.data!.id, proposal: updatedProposal });
+
+    // Pipeline should reflect new value
+    report = await pipeline_report();
+    expect(report.data?.totalActiveValue).toBe(13000);
   });
 
   it('delete removes proposal and history completely', async () => {

@@ -120,4 +120,25 @@ describe('CLI', () => {
     const { stderr } = await runCli('clone');
     expect(stderr).toContain('required');
   });
+
+  it('migrate command outputs up-to-date message', async () => {
+    const { stdout } = await runCli('migrate');
+    expect(stdout).toContain('migration');
+  });
+
+  it('migrate status command outputs version info', async () => {
+    const { stdout } = await runCli('migrate', 'status');
+    expect(stdout).toContain('Migration Status');
+    expect(stdout).toContain('Current version');
+  });
+
+  it('update command with nonexistent file gives file error', async () => {
+    const { stderr } = await runCli('update', 'some-id', '/tmp/nonexistent-purprose-file.json');
+    expect(stderr).toContain('not found');
+  });
+
+  it('clone with nonexistent ID gives not-found error', async () => {
+    const { stderr } = await runCli('clone', 'nonexistent-uuid-12345');
+    expect(stderr).toContain('not found');
+  });
 });
