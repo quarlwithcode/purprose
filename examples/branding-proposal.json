@@ -1,0 +1,48 @@
+{
+  "title": "Metro Fitness: Brand Identity Package",
+  "clientName": "James Chen",
+  "clientCompany": "Metro Fitness",
+  "preparedBy": "Your Name",
+  "preparedByTitle": "Creative Director",
+  "date": "2026-03-08",
+  "validUntil": "2026-04-08",
+  
+  "sections": [
+    {
+      "title": "Overview",
+      "content": "This proposal covers a complete brand identity package for Metro Fitness, including logo design, color palette, typography, and brand guidelines.\n\nThe goal is to create a cohesive visual identity that resonates with your target audience and stands out in the competitive fitness market.",
+      "type": "text"
+    },
+    {
+      "title": "Scope of Work",
+      "content": "Logo design (3 concepts, 2 revision rounds)\nColor palette definition\nTypography selection\nBrand guidelines PDF (20+ pages)\nBusiness card design\nSocial media profile templates",
+      "type": "list"
+    },
+    {
+      "title": "Process",
+      "content": "Discovery call to understand your vision\nMoodboard presentation\nInitial concepts delivery\nRevision rounds\nFinal file delivery",
+      "type": "list"
+    }
+  ],
+  
+  "investment": [
+    {
+      "item": "Brand Identity Package",
+      "description": "Complete branding as outlined in scope",
+      "amount": 3500,
+      "recurring": false,
+      "frequency": "one-time"
+    }
+  ],
+  
+  "paymentTerms": {
+    "structure": "50-50"
+  },
+  
+  "startDate": "Next business day after starting payment is received",
+  "estimatedDuration": "21 business days from start",
+  
+  "contactEmail": "hello@example.com",
+  "contactPhone": "555-123-4567",
+  "paymentMethods": "Zelle, ACH, Wire, Check"
+}

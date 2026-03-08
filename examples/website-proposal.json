@@ -1,0 +1,61 @@
+{
+  "title": "Riverside Consulting: Website Redesign",
+  "clientName": "Sarah Mitchell",
+  "clientCompany": "Riverside Consulting",
+  "preparedBy": "Your Name",
+  "preparedByTitle": "Founder",
+  "date": "2026-03-08",
+  "validUntil": "2026-04-08",
+  
+  "sections": [
+    {
+      "title": "Overview",
+      "content": "This proposal outlines a complete website redesign for Riverside Consulting, focusing on modern design, mobile responsiveness, and improved user experience.\n\nThe new website will better represent your brand and convert visitors into clients.",
+      "type": "text"
+    },
+    {
+      "title": "Scope of Work",
+      "content": "5-page responsive website (Home, About, Services, Contact, Blog)\nMobile-first design approach\nSEO optimization for all pages\nContact form with email integration\nGoogle Analytics setup\n2 rounds of revisions included",
+      "type": "list"
+    },
+    {
+      "title": "Deliverables",
+      "content": "Fully responsive website\nAdmin access for content updates\nBasic SEO setup\nTraining session (30 min)",
+      "type": "list"
+    }
+  ],
+  
+  "investment": [
+    {
+      "item": "Website Design & Development",
+      "description": "5-page responsive site with all features listed above",
+      "amount": 2500,
+      "recurring": false,
+      "frequency": "one-time"
+    },
+    {
+      "item": "Monthly Maintenance",
+      "description": "Updates, backups, security monitoring",
+      "amount": 150,
+      "recurring": true,
+      "frequency": "monthly"
+    }
+  ],
+  
+  "paymentTerms": {
+    "structure": "50-50"
+  },
+  
+  "startDate": "Next business day after starting payment is received",
+  "estimatedDuration": "14 business days from start",
+  
+  "contactEmail": "hello@example.com",
+  "contactPhone": "555-123-4567",
+  "paymentMethods": "Zelle, ACH, Wire, Check",
+  
+  "style": {
+    "primaryColor": "#1a1a1a",
+    "secondaryColor": "#222222",
+    "accentColor": "#333333"
+  }
+}
