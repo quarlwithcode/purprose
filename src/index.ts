@@ -21,6 +21,7 @@ import {
   list_proposals,
   update_proposal_status,
   update_proposal,
+  clone_proposal,
   delete_proposal,
   pipeline_report,
   proposal_history,
@@ -259,6 +260,20 @@ const TOOLS = [
     },
   },
   {
+    name: 'clone_proposal',
+    description: 'Clone an existing proposal with optional overrides. Creates a new draft with a new UUID.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        id: { type: 'string' as const, description: 'Source proposal UUID to clone' },
+        newClientName: { type: 'string' as const, description: 'Override client name' },
+        newTitle: { type: 'string' as const, description: 'Override title' },
+        newClientCompany: { type: 'string' as const, description: 'Override client company' },
+      },
+      required: ['id'],
+    },
+  },
+  {
     name: 'delete_proposal',
     description: 'Delete a saved proposal and its history.',
     inputSchema: {
@@ -402,6 +417,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         id: string;
         proposal: unknown;
         templateId?: string;
+      });
+      break;
+    case 'clone_proposal':
+      result = await clone_proposal(toolArgs as unknown as {
+        id: string;
+        newClientName?: string;
+        newTitle?: string;
+        newClientCompany?: string;
       });
       break;
     case 'delete_proposal':

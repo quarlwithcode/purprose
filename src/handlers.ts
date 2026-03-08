@@ -18,6 +18,7 @@ import {
   getProposal as dbGet,
   listProposals as dbList,
   updateProposal as dbUpdate,
+  cloneProposal as dbClone,
   updateProposalStatus as dbUpdateStatus,
   deleteProposal as dbDelete,
   getProposalHistory as dbHistory,
@@ -295,6 +296,23 @@ export async function update_proposal(input: {
       error: error instanceof Error ? error.message : 'Invalid proposal data',
     };
   }
+}
+
+export async function clone_proposal(input: {
+  id: string;
+  newClientName?: string;
+  newTitle?: string;
+  newClientCompany?: string;
+}): Promise<ToolResponse<StoredProposal>> {
+  const stored = dbClone(input.id, {
+    newClientName: input.newClientName,
+    newTitle: input.newTitle,
+    newClientCompany: input.newClientCompany,
+  });
+  if (!stored) {
+    return { success: false, error: `Proposal not found: ${input.id}` };
+  }
+  return { success: true, data: stored };
 }
 
 export async function delete_proposal(input: {

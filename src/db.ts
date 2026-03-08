@@ -261,6 +261,23 @@ export function updateProposal(
   return updated ? rowToStoredProposal(updated) : null;
 }
 
+export function cloneProposal(
+  id: string,
+  overrides: { newClientName?: string; newTitle?: string; newClientCompany?: string } = {}
+): StoredProposal | null {
+  const database = getDb();
+  const existing = database.prepare('SELECT * FROM proposals WHERE id = ?').get(id) as any;
+  if (!existing) return null;
+
+  const proposal: Proposal = JSON.parse(existing.proposal_json);
+
+  if (overrides.newClientName) proposal.clientName = overrides.newClientName;
+  if (overrides.newTitle) proposal.title = overrides.newTitle;
+  if (overrides.newClientCompany) proposal.clientCompany = overrides.newClientCompany;
+
+  return saveProposal(proposal, existing.template_id, 'draft');
+}
+
 export function deleteProposal(id: string): boolean {
   const database = getDb();
   const result = database.prepare('DELETE FROM proposals WHERE id = ?').run(id);

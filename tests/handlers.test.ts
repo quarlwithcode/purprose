@@ -11,6 +11,7 @@ import {
   get_proposal,
   list_proposals,
   update_proposal,
+  clone_proposal,
   update_proposal_status,
   delete_proposal,
   pipeline_report,
@@ -524,6 +525,55 @@ describe('purprose', () => {
       const saved = await save_proposal({ proposal: baseProposal });
       const result = await update_proposal({ id: saved.data!.id, proposal: { title: 'missing fields' } });
       expect(result.success).toBe(false);
+    });
+
+    it('clones proposal preserving sections and investment', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const result = await clone_proposal({ id: saved.data!.id });
+      expect(result.success).toBe(true);
+      expect(result.data?.proposal.sections.length).toBe(baseProposal.sections.length);
+      expect(result.data?.proposal.investment[0].amount).toBe(1000);
+      expect(result.data?.totalValue).toBe(1000);
+    });
+
+    it('clone applies client and title overrides', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const result = await clone_proposal({
+        id: saved.data!.id,
+        newClientName: 'New Client',
+        newTitle: 'New Title',
+        newClientCompany: 'New Company',
+      });
+      expect(result.success).toBe(true);
+      expect(result.data?.clientName).toBe('New Client');
+      expect(result.data?.title).toBe('New Title');
+      expect(result.data?.clientCompany).toBe('New Company');
+      expect(result.data?.proposal.clientName).toBe('New Client');
+    });
+
+    it('clone resets status to draft', async () => {
+      const saved = await save_proposal({ proposal: baseProposal, status: 'sent' });
+      const result = await clone_proposal({ id: saved.data!.id });
+      expect(result.data?.status).toBe('draft');
+    });
+
+    it('clone gets new UUID', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      const result = await clone_proposal({ id: saved.data!.id });
+      expect(result.data?.id).not.toBe(saved.data!.id);
+    });
+
+    it('clone leaves original proposal unchanged', async () => {
+      const saved = await save_proposal({ proposal: baseProposal });
+      await clone_proposal({ id: saved.data!.id, newClientName: 'Different' });
+      const original = await get_proposal({ id: saved.data!.id });
+      expect(original.data?.clientName).toBe('Test Client');
+    });
+
+    it('clone nonexistent ID returns error', async () => {
+      const result = await clone_proposal({ id: 'nonexistent-uuid' });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
     });
 
     it('generate_proposal with save=true persists to db', async () => {
