@@ -1,6 +1,6 @@
 {
   "name": "@cubicrew/purprose",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Proposal management MCP server and CLI — generate, track, and analyze proposals",
   "type": "module",
   "main": "dist/index.js",

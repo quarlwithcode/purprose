@@ -1,18 +1,11 @@
-# purprose — Proposal Generation
+# purprose — Proposal Generation & Management
 
-Generate professional client proposals as print-ready HTML with templated styling.
+Generate, track, and analyze professional client proposals with lifecycle management, pipeline analytics, and CRM alignment.
 
 ## Quick Start
 
 ### Via MCP Tools
 ```typescript
-// Generate full proposal
-generate_proposal({
-  proposal: { ...proposalData },
-  outputFormat: "html",
-  templateId: "default" // or "minimal" or "professional"
-})
-
 // Create draft from minimal info
 draft_proposal({
   clientName: "Acme Corp",
@@ -20,6 +13,18 @@ draft_proposal({
   estimatedBudget: 5000,
   preparedBy: "Your Name"
 })
+
+// Save to database
+save_proposal({ proposal: draftData, templateId: "professional" })
+
+// Track lifecycle
+update_proposal_status({ id: "uuid", status: "sent", notes: "Emailed to client" })
+
+// Pipeline analytics
+pipeline_report({ client: "Acme" })
+
+// CRM alignment check
+check_crm_alignment({ id: "uuid", crmContext: { dealValue: 5000, dealStage: "proposal" } })
 ```
 
 ### Via CLI
@@ -32,7 +37,78 @@ npx purprose draft --client "Acme Corp" --description "Website redesign" --budge
 
 # Validate structure
 npx purprose validate proposal-data.json
+
+# List proposals
+npx purprose list --status sent --client "Acme"
+
+# Get proposal details
+npx purprose get <uuid>
+
+# Update status
+npx purprose status <uuid> sent --notes "Emailed to client"
+
+# Delete proposal
+npx purprose delete <uuid>
 ```
+
+## MCP Tools (14)
+
+### Generation (6 tools)
+| Tool | Description |
+|------|-------------|
+| `generate_proposal` | Generate HTML/PDF from full proposal data. Options: `outputFormat`, `templateId`, `save` |
+| `validate_proposal` | Validate proposal JSON structure. Returns errors if invalid |
+| `draft_proposal` | Create starter proposal from minimal input (client, description, budget, preparer) |
+| `add_section` | Add a section to a proposal at a given position |
+| `update_investment` | Replace investment/pricing line items |
+| `list_templates` | List available templates: default, minimal, professional |
+
+### Lifecycle (5 tools)
+| Tool | Description |
+|------|-------------|
+| `save_proposal` | Persist proposal to SQLite database with status and template |
+| `get_proposal` | Retrieve a saved proposal by UUID |
+| `list_proposals` | List/filter proposals by status, client, date range with pagination |
+| `update_proposal_status` | Transition status with optional notes. Records audit trail |
+| `delete_proposal` | Delete proposal and cascaded status history |
+
+### Analytics (2 tools)
+| Tool | Description |
+|------|-------------|
+| `pipeline_report` | Pipeline summary: counts/values by status, weighted value, win/loss rates, top clients |
+| `proposal_history` | Full status change audit trail for a proposal |
+
+### CRM Alignment (1 tool)
+| Tool | Description |
+|------|-------------|
+| `check_crm_alignment` | Compare proposal against CRM data: client name, deal value, stage mapping, dates, gaps |
+
+## CLI Commands (8)
+
+| Command | Description |
+|---------|-------------|
+| `generate <input.json>` | Generate HTML/PDF. Options: `-o`, `-f html\|pdf`, `-t template`, `--save` |
+| `draft` | Create draft JSON. Options: `--client`, `--description`, `--budget`, `--by` |
+| `validate <input.json>` | Validate proposal structure |
+| `list` | List proposals. Options: `--status`, `--client` |
+| `get <id>` | Show proposal details |
+| `status <id> <status>` | Update status. Options: `--notes` |
+| `delete <id>` | Delete proposal |
+| `help` | Show help text |
+
+## Lifecycle States
+
+```
+draft → reviewed → sent → approved → won
+                                   → lost
+```
+
+- **draft**: Initial state when saved
+- **reviewed**: Internally reviewed by team
+- **sent**: Delivered to client
+- **approved**: Client approved, pending close
+- **won**: Deal closed successfully
+- **lost**: Deal lost
 
 ## Proposal Structure
 
@@ -138,15 +214,29 @@ These rules are enforced in all generated proposals:
 - `timeline` — Phases with tasks (phases separated by blank lines; first line is phase name, subsequent lines are tasks)
 - `table` — Data table (comma-separated values; first row is headers)
 
-## Output
+## Pipeline Analytics
 
-purprose generates print-ready HTML. To create a PDF:
+The `pipeline_report` tool provides:
+- **Proposal counts and values** broken down by status
+- **Weighted pipeline value** using status weights (draft=10%, reviewed=25%, sent=50%, approved=75%)
+- **Win/loss statistics**: win count, loss count, win rate percentage
+- **Average deal values** for won and lost proposals
+- **Recent activity**: last 10 status changes across all proposals
+- **Top clients** ranked by total proposal value
 
-1. Generate the HTML proposal
-2. Open in a browser
-3. Use Print > Save as PDF
+Filter by date range (`dateFrom`, `dateTo`) and/or client name.
 
-The HTML includes print-optimized CSS that prevents mid-section page breaks.
+## CRM Alignment
+
+The `check_crm_alignment` tool compares proposal data against CRM context:
+- **Client name matching** — Partial string match between proposal and CRM
+- **Value alignment** — Delta and percentage difference between proposal total and CRM deal value
+- **Stage mapping** — Maps CRM stages to expected proposal statuses (e.g., "proposal" stage expects "sent" status)
+- **Date alignment** — Checks if proposal validity covers CRM close date
+- **Gap detection** — Identifies missing fields (company name, contact title)
+- **Actionable suggestions** — Recommends specific fixes for misalignments
+
+Provide either inline `proposal` data or a stored proposal `id`.
 
 ## Example Workflow
 
@@ -176,15 +266,26 @@ const final = await update_investment({
   ]
 });
 
-// 4. Generate
+// 4. Save to database
+const saved = await save_proposal({
+  proposal: final.data,
+  templateId: "professional"
+});
+
+// 5. Track through lifecycle
+await update_proposal_status({ id: saved.data.id, status: "reviewed", notes: "Team approved" });
+await update_proposal_status({ id: saved.data.id, status: "sent", notes: "Emailed to client" });
+
+// 6. Generate HTML
 const html = await generate_proposal({
   proposal: final.data,
   outputFormat: "html",
   templateId: "professional"
 });
 
-// 5. Save and open in browser, print to PDF
-await writeFile("riverside-proposal.html", html.data.html);
+// 7. Check pipeline
+const report = await pipeline_report();
+// → { total: 1, byStatus: { sent: { count: 1, value: 2800 } }, ... }
 ```
 
 ## Tips
@@ -193,3 +294,5 @@ await writeFile("riverside-proposal.html", html.data.html);
 - Include deadline as "X days from start"
 - Always include "Next Steps" section (auto-generated)
 - Test print preview before sending
+- Use `save` flag on generate to persist in one step: `generate_proposal({ ..., save: true })`
+- Filter pipeline reports by client to track specific relationships
