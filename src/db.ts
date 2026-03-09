@@ -154,6 +154,15 @@ export function getProposal(id: string): StoredProposal | null {
   return row ? rowToStoredProposal(row) : null;
 }
 
+export function resolveId(prefix: string): string | null {
+  const database = getDb();
+  const rows = database.prepare(
+    'SELECT id FROM proposals WHERE id LIKE ?'
+  ).all(`${prefix}%`) as { id: string }[];
+  if (rows.length === 1) return rows[0].id;
+  return null;
+}
+
 export function listProposals(filters: ProposalFilters = {}): { proposals: StoredProposal[]; total: number } {
   const database = getDb();
   const conditions: string[] = [];

@@ -13,7 +13,7 @@ import {
   delete_proposal,
 } from './handlers.js';
 import { isPuppeteerAvailable, htmlToPdf } from './pdf.js';
-import { getMigrationStatus } from './db.js';
+import { getMigrationStatus, resolveId } from './db.js';
 
 const HELP = `
 purprose — Proposal Generation & Management CLI
@@ -86,6 +86,16 @@ EXAMPLES:
   # Delete proposal
   purprose delete abc-123
 `;
+
+function resolveOrExit(idArg: string): string {
+  if (idArg.length >= 36) return idArg;
+  const resolved = resolveId(idArg);
+  if (!resolved) {
+    console.error(`Error: No unique proposal found for prefix "${idArg}"`);
+    process.exit(1);
+  }
+  return resolved;
+}
 
 async function main() {
   const args = process.argv.slice(2);
@@ -263,11 +273,11 @@ async function main() {
     }
 
     case 'get': {
-      const id = args[1];
-      if (!id) {
+      if (!args[1]) {
         console.error('Error: Proposal ID required');
         process.exit(1);
       }
+      const id = resolveOrExit(args[1]);
 
       const result = await get_proposal({ id });
 
@@ -290,13 +300,13 @@ async function main() {
     }
 
     case 'status': {
-      const id = args[1];
       const newStatus = args[2];
-      if (!id || !newStatus) {
+      if (!args[1] || !newStatus) {
         console.error('Error: Proposal ID and new status required');
         console.log('Usage: purprose status <id> <new-status> [--notes "reason"]');
         process.exit(1);
       }
+      const id = resolveOrExit(args[1]);
 
       let notes: string | undefined;
       for (let i = 3; i < args.length; i++) {
@@ -315,11 +325,11 @@ async function main() {
     }
 
     case 'delete': {
-      const id = args[1];
-      if (!id) {
+      if (!args[1]) {
         console.error('Error: Proposal ID required');
         process.exit(1);
       }
+      const id = resolveOrExit(args[1]);
 
       const result = await delete_proposal({ id });
 
@@ -333,13 +343,13 @@ async function main() {
     }
 
     case 'update': {
-      const id = args[1];
       const inputFile = args[2];
-      if (!id || !inputFile) {
+      if (!args[1] || !inputFile) {
         console.error('Error: Proposal ID and input file required');
         console.log('Usage: purprose update <id> <input.json> [--template <t>]');
         process.exit(1);
       }
+      const id = resolveOrExit(args[1]);
 
       if (!existsSync(inputFile)) {
         console.error(`Error: File not found: ${inputFile}`);
@@ -368,12 +378,12 @@ async function main() {
     }
 
     case 'clone': {
-      const id = args[1];
-      if (!id) {
+      if (!args[1]) {
         console.error('Error: Proposal ID required');
         console.log('Usage: purprose clone <id> [--client "Name"] [--title "Title"]');
         process.exit(1);
       }
+      const id = resolveOrExit(args[1]);
 
       let client: string | undefined;
       let title: string | undefined;

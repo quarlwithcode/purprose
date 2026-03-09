@@ -18,7 +18,7 @@ import {
   proposal_history,
   check_crm_alignment,
 } from '../src/handlers.js';
-import { initDb, closeDb } from '../src/db.js';
+import { initDb, closeDb, resolveId } from '../src/db.js';
 
 describe('purprose', () => {
   const baseProposal = {
@@ -1069,6 +1069,38 @@ describe('purprose', () => {
 
       const page3 = await list_proposals({ limit: 2, offset: 4 });
       expect(page3.data?.proposals.length).toBe(1);
+    });
+  });
+
+  describe('resolveId', () => {
+    it('resolves a unique prefix to full ID', async () => {
+      const result = await save_proposal({ proposal: baseProposal });
+      const fullId = result.data!.id;
+      const prefix = fullId.slice(0, 8);
+
+      const resolved = resolveId(prefix);
+      expect(resolved).toBe(fullId);
+    });
+
+    it('returns null for non-matching prefix', () => {
+      const resolved = resolveId('zzzzzzzz');
+      expect(resolved).toBeNull();
+    });
+
+    it('returns null for ambiguous prefix', async () => {
+      // Save two proposals so prefix "%" would match both
+      const r1 = await save_proposal({ proposal: baseProposal });
+      const r2 = await save_proposal({ proposal: baseProposal });
+
+      // A single-character prefix should match both
+      // Find common prefix
+      const id1 = r1.data!.id;
+      const id2 = r2.data!.id;
+
+      // Empty prefix matches all
+      const resolved = resolveId('');
+      // With 2+ proposals in DB, empty prefix is ambiguous
+      expect(resolved).toBeNull();
     });
   });
 });

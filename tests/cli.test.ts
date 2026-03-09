@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { writeFile, unlink, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
 
 const execFileAsync = promisify(execFile);
 const CLI_PATH = join(import.meta.dirname, '..', 'dist', 'cli.js');
@@ -133,12 +134,100 @@ describe('CLI', () => {
   });
 
   it('update command with nonexistent file gives file error', async () => {
-    const { stderr } = await runCli('update', 'some-id', '/tmp/nonexistent-purprose-file.json');
+    const { stderr } = await runCli('update', '00000000-0000-0000-0000-000000000000', '/tmp/nonexistent-purprose-file.json');
     expect(stderr).toContain('not found');
   });
 
   it('clone with nonexistent ID gives not-found error', async () => {
-    const { stderr } = await runCli('clone', 'nonexistent-uuid-12345');
+    const { stderr } = await runCli('clone', '00000000-0000-0000-0000-000000000001');
     expect(stderr).toContain('not found');
+  });
+});
+
+describe('CLI short-ID prefix lookup', () => {
+  let tempDbPath: string;
+  const sampleFile = join(tmpdir(), `purprose-prefix-test-input.json`);
+
+  beforeAll(async () => {
+    await writeFile(sampleFile, JSON.stringify(sampleProposal, null, 2));
+  });
+
+  afterAll(async () => {
+    if (existsSync(sampleFile)) await unlink(sampleFile);
+  });
+
+  beforeEach(async () => {
+    tempDbPath = join(tmpdir(), `purprose-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
+  });
+
+  afterEach(async () => {
+    if (existsSync(tempDbPath)) await unlink(tempDbPath);
+  });
+
+  async function runCliWithDb(...args: string[]): Promise<{ stdout: string; stderr: string }> {
+    try {
+      return await execFileAsync('node', [CLI_PATH, ...args], {
+        env: { ...process.env, PURPROSE_DB_PATH: tempDbPath },
+      });
+    } catch (error: any) {
+      return { stdout: error.stdout || '', stderr: error.stderr || '' };
+    }
+  }
+
+  it('get works with short ID prefix', async () => {
+    const { stdout: genOut } = await runCliWithDb('generate', sampleFile, '--save');
+    const match = genOut.match(/Saved to database: ([a-f0-9-]+)/);
+    expect(match).toBeTruthy();
+    const fullId = match![1];
+    const shortId = fullId.slice(0, 8);
+
+    const { stdout } = await runCliWithDb('get', shortId);
+    expect(stdout).toContain('CLI Test Proposal');
+  });
+
+  it('get works with full UUID', async () => {
+    const { stdout: genOut } = await runCliWithDb('generate', sampleFile, '--save');
+    const match = genOut.match(/Saved to database: ([a-f0-9-]+)/);
+    expect(match).toBeTruthy();
+    const fullId = match![1];
+
+    const { stdout } = await runCliWithDb('get', fullId);
+    expect(stdout).toContain('CLI Test Proposal');
+  });
+
+  it('status works with short ID prefix', async () => {
+    const { stdout: genOut } = await runCliWithDb('generate', sampleFile, '--save');
+    const match = genOut.match(/Saved to database: ([a-f0-9-]+)/);
+    expect(match).toBeTruthy();
+    const shortId = match![1].slice(0, 8);
+
+    const { stdout } = await runCliWithDb('status', shortId, 'internal_review', '--notes', 'test');
+    expect(stdout).toContain('internal_review');
+  });
+
+  it('delete works with short ID prefix', async () => {
+    const { stdout: genOut } = await runCliWithDb('generate', sampleFile, '--save');
+    const match = genOut.match(/Saved to database: ([a-f0-9-]+)/);
+    expect(match).toBeTruthy();
+    const shortId = match![1].slice(0, 8);
+
+    const { stdout } = await runCliWithDb('delete', shortId);
+    expect(stdout).toContain('Deleted');
+  });
+
+  it('clone works with short ID prefix', async () => {
+    const { stdout: genOut } = await runCliWithDb('generate', sampleFile, '--save');
+    const match = genOut.match(/Saved to database: ([a-f0-9-]+)/);
+    expect(match).toBeTruthy();
+    const shortId = match![1].slice(0, 8);
+
+    const { stdout } = await runCliWithDb('clone', shortId, '--client', 'New Client');
+    expect(stdout).toContain('Cloned');
+    expect(stdout).toContain('New Client');
+  });
+
+  it('shows error for non-matching prefix', async () => {
+    const { stderr } = await runCliWithDb('get', 'zzzzzzzz');
+    expect(stderr).toContain('No unique proposal found for prefix');
   });
 });
